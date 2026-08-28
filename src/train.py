@@ -1,52 +1,101 @@
-import pandas as pd
 import mlflow
 import mlflow.sklearn
+
+from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-
-DATA_PATH = "data/data.csv"
-TARGET_COLUMN = "target"
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
 
 
-def load_data(path: str) -> pd.DataFrame:
-    return pd.read_csv(path)
+# --------------------------------------------------
+# 1. Load Dataset
+# --------------------------------------------------
+
+iris = load_iris()
+
+X = iris.data
+y = iris.target
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
 
 
-def main():
-    df = load_data(DATA_PATH)
+# --------------------------------------------------
+# 2. MLflow Experiment
+# --------------------------------------------------
 
-    X = df.drop(columns=[TARGET_COLUMN])
-    y = df[TARGET_COLUMN]
+mlflow.set_experiment("Iris_Classification")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+
+# --------------------------------------------------
+# 3. Start MLflow Run
+# --------------------------------------------------
+
+with mlflow.start_run():
+
+    # Model parameters
+    n_estimators = 100
+    max_depth = 5
+    random_state = 42
+
+    # --------------------------------------------------
+    # 4. Create Model
+    # --------------------------------------------------
+
+    model = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        random_state=random_state
     )
 
-    with mlflow.start_run():
-        n_estimators = 100
-        max_depth = 5
+    # --------------------------------------------------
+    # 5. Train Model
+    # --------------------------------------------------
 
-        mlflow.log_param("n_estimators", n_estimators)
-        mlflow.log_param("max_depth", max_depth)
+    model.fit(X_train, y_train)
 
-        model = RandomForestRegressor(
-            n_estimators=n_estimators, max_depth=max_depth, random_state=42
-        )
-        model.fit(X_train, y_train)
+    # --------------------------------------------------
+    # 6. Prediction
+    # --------------------------------------------------
 
-        predictions = model.predict(X_test)
-        rmse = mean_squared_error(y_test, predictions, squared=False)
-        r2 = r2_score(y_test, predictions)
+    y_pred = model.predict(X_test)
 
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
+    # --------------------------------------------------
+    # 7. Evaluation
+    # --------------------------------------------------
 
-        mlflow.sklearn.log_model(model, "model")
+    accuracy = accuracy_score(y_test, y_pred)
 
-        print(f"RMSE: {rmse:.4f}")
-        print(f"R2: {r2:.4f}")
+    print("Accuracy:", accuracy)
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred))
 
+    # --------------------------------------------------
+    # 8. Log Parameters
+    # --------------------------------------------------
 
-if __name__ == "__main__":
-    main()
+    mlflow.log_param("n_estimators", n_estimators)
+    mlflow.log_param("max_depth", max_depth)
+    mlflow.log_param("random_state", random_state)
+
+    # --------------------------------------------------
+    # 9. Log Metrics
+    # --------------------------------------------------
+
+    mlflow.log_metric("accuracy", accuracy)
+
+    # --------------------------------------------------
+    # 10. Log Model
+    # --------------------------------------------------
+
+    mlflow.sklearn.log_model(
+        model,
+        "random_forest_model"
+    )
+
+    print("MLflow run completed successfully!")
